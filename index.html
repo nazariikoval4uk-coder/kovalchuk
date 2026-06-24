@@ -1232,6 +1232,16 @@ function handleFile(event){
   reader.readAsBinaryString(file);
 }
 
+function safeTrunc(s,n){
+  if(!s||s.length<=n)return s;
+  var cut=s.slice(0,n);
+  // якщо останній символ - високий сурогат (0xD800-0xDBFF), вирізаємо його - прибираємо неповну пару
+  var lastCode=cut.charCodeAt(cut.length-1);
+  if(lastCode>=0xD800&&lastCode<=0xDBFF){
+    cut=cut.slice(0,-1);
+  }
+  return cut;
+}
 function mapStoreId(src,mgr){
   var s=String(src||"").trim();
   if(["Юля","інстаграм реклама","Назар","ПАРК"].indexOf(s)>=0)return 0;
@@ -1264,8 +1274,8 @@ function processRawOrders(rawRows){
     var ig=String(r["Клієнт"]||"").trim();
     if(ig==="nan"||ig==="NaN"||ig==="undefined")ig="";
     if(ig.indexOf("http")===0)ig=ig.split("/").pop();
-    var cl=String(r["Прізвище"]||"").slice(0,16);
-    var md=String(r["Модель"]||"").slice(0,30);
+    var cl=safeTrunc(String(r["Прізвище"]||""),16);
+    var md=safeTrunc(String(r["Модель"]||""),30);
     var margin=Math.round(parseFloat(r["Маржа"])||0)+Math.round(parseFloat(r["Часткова передплата"])||0);
     var isShtorm=String(r["Постачальник"]||"").toUpperCase().indexOf("SHTORM")>=0?1:0;
     newRaw.push({d:d,st:mapStoreId(r["Джерело трафіку"],r["Менеджер який прийняв замовлення"]),sg:sgId,ma:margin,dp:Math.round(parseFloat(r["Дроп ціна"])||0),cl:cl,ph:ph,ig:ig,md:md,sh:isShtorm});
