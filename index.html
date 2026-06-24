@@ -1260,13 +1260,32 @@ function processRawOrders(rawRows){
   go();
   saveOrdersToCloud();
 }
+function showSaveOverlay(text){
+  var ov=document.getElementById("save-overlay");
+  if(!ov){
+    ov=document.createElement("div");
+    ov.id="save-overlay";
+    ov.style.cssText="position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(11,12,16,.94);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:14px;";
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML="<div style='font-size:40px'>☁️</div><div style='color:#e2e4f0;font-size:15px;font-weight:700'>"+text+"</div><div style='color:#7c7e9a;font-size:12px'>Не перезавантажуй сторінку зараз і не закривай вкладку</div>";
+  ov.style.display="flex";
+}
+function hideSaveOverlay(){
+  var ov=document.getElementById("save-overlay");
+  if(ov)ov.style.display="none";
+}
 function saveOrdersToCloud(){
-  supaSet("orders",RAW).then(function(){
+  showSaveOverlay("Збереження в базу даних...");
+  document.getElementById("hinfo").textContent="Збереження в хмарі...";
+  return supaSet("orders",RAW).then(function(){
     document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень · ☁️ збережено в базі";
-    alert("Дані оновлено і збережено в хмарі: "+RAW.length+" замовлень. Це буде доступно на всіх ваших пристроях.");
+    hideSaveOverlay();
+    alert("Готово! Дані збережено в хмарі: "+RAW.length+" замовлень. Тепер можеш безпечно перезавантажити сторінку або відкрити сайт на іншому пристрої.");
   }).catch(function(e){
     document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень · ⚠️ помилка збереження";
-    alert("Дані оновлено локально, але не вдалося зберегти в хмару. Перевір інтернет і спробуй знову.");
+    hideSaveOverlay();
+    alert("Увага! Дані НЕ вдалося зберегти в хмару (проблема з інтернетом). Якщо зараз перезавантажиш сторінку - втратиш це оновлення. Спробуй завантажити XLS ще раз.");
   });
 }
 
