@@ -1295,7 +1295,7 @@ function hideSaveOverlay(){
   if(ov)ov.style.display="none";
 }
 function saveOrdersToCloud(){
-  var CHUNK_SIZE=400;
+  var CHUNK_SIZE=150;
   var chunks=[];
   for(var i=0;i<RAW.length;i+=CHUNK_SIZE){
     chunks.push(RAW.slice(i,i+CHUNK_SIZE));
