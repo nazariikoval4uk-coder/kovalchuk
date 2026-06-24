@@ -9,7 +9,7 @@
 var SUPA_URL="https://fmlmsidocoibtmzwjmyo.supabase.co";
 var SUPA_KEY="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZtbG1zaWRvY29pYnRtendqbXlvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODIyMTI2NTUsImV4cCI6MjA5Nzc4ODY1NX0.wTcqyNCyeHLFEM-ICHtlZKpKelV4JDjNg57u6brxpiY";
 function fetchWithTimeout(url,opts,ms){
-  ms=ms||8000;
+  ms=ms||15000;
   return new Promise(function(resolve,reject){
     var timer=setTimeout(function(){reject(new Error("timeout"));},ms);
     fetch(url,opts).then(function(r){clearTimeout(timer);resolve(r);}).catch(function(e){clearTimeout(timer);reject(e);});
@@ -23,14 +23,22 @@ function supaGet(id){
   }).catch(function(e){console.error("supaGet failed:",id,e);return null;});
 }
 function supaSet(id,data){
-  return fetchWithTimeout(SUPA_URL+"/rest/v1/kovalchuk_data",{
+  return fetchWithTimeout(SUPA_URL+"/rest/v1/kovalchuk_data?on_conflict=id",{
     method:"POST",
     headers:{
       "apikey":SUPA_KEY,"Authorization":"Bearer "+SUPA_KEY,
-      "Content-Type":"application/json","Prefer":"resolution=merge-duplicates"
+      "Content-Type":"application/json","Prefer":"resolution=merge-duplicates,return=representation"
     },
     body:JSON.stringify({id:id,data:data,updated_at:new Date().toISOString()})
-  }).catch(function(e){console.error("supaSet failed:",id,e);});
+  }).then(function(r){
+    if(!r.ok){
+      return r.text().then(function(t){throw new Error("Supabase write failed ("+r.status+"): "+t);});
+    }
+    return r.json();
+  }).then(function(result){
+    console.log("supaSet OK for",id,"- server confirmed:",JSON.stringify(result).slice(0,200));
+    return result;
+  });
 }
 </script>
 <style>
