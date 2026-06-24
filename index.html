@@ -1291,9 +1291,13 @@ function saveOrdersToCloud(){
     hideSaveOverlay();
     alert("Готово! Дані збережено в хмарі: "+RAW.length+" замовлень. Тепер можеш безпечно перезавантажити сторінку або відкрити сайт на іншому пристрої.");
   }).catch(function(e){
+    console.error("=== SAVE TO CLOUD FAILED ===");
+    console.error("Error object:", e);
+    console.error("Error message:", e && e.message);
+    console.error("Error stack:", e && e.stack);
     document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень · ⚠️ помилка збереження";
     hideSaveOverlay();
-    alert("Увага! Дані НЕ вдалося зберегти в хмару (проблема з інтернетом). Якщо зараз перезавантажиш сторінку - втратиш це оновлення. Спробуй завантажити XLS ще раз.");
+    alert("Увага! Дані НЕ вдалося зберегти в хмару. Причина: "+(e&&e.message?e.message:"невідома")+". Деталі в консолі (F12). Якщо зараз перезавантажиш сторінку - втратиш це оновлення.");
   });
 }
 
