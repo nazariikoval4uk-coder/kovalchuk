@@ -446,11 +446,23 @@ function loadAllFromCloud(){
     supaGet("plans").then(function(d){if(d)PLANS=d;}),
     supaGet("notes").then(function(d){if(d)CN=d;}),
     supaGet("mailed").then(function(d){if(d)MAILED=d;}),
-    supaGet("card_actions").then(function(d){if(d)CARD_ACTIONS=d;})
+    supaGet("card_actions").then(function(d){if(d)CARD_ACTIONS=d;}),
+    supaGet("orders").then(function(d){
+      if(d&&d.length){
+        RAW=d;
+        var dates=RAW.map(function(r){return r.d;}).sort();
+        dateFrom=dates[0];dateTo=dates[dates.length-1];
+        document.getElementById("df").value=dateFrom;
+        document.getElementById("dt").value=dateTo;
+        activeSt=new Set([0,1,2,3,4]);
+      } else {
+        // база ще порожня - завантажити в неї поточні вбудовані дані
+        supaSet("orders",RAW);
+      }
+    })
   ]).then(function(){
     document.getElementById("hinfo").textContent=dateFrom+" \u2014 "+dateTo+" \u00B7 "+RAW.length+" \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u00B7 \u2601\ufe0f \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u043e\u0432\u0430\u043d\u043e";
-    var ap=document.querySelector(".pg.on");
-    if(ap)rPg(ap.id.replace("p-",""));
+    go();
   }).catch(function(e){
     console.error("Cloud sync failed:",e);
     document.getElementById("hinfo").textContent=dateFrom+" \u2014 "+dateTo+" \u00B7 "+RAW.length+" \u0437\u0430\u043c\u043e\u0432\u043b\u0435\u043d\u044c \u00B7 \u26a0\ufe0f \u0431\u0435\u0437 \u0441\u0438\u043d\u0445\u0440\u043e\u043d\u0456\u0437\u0430\u0446\u0456\u0457";
@@ -1201,43 +1213,61 @@ function handleFile(event){
   reader.readAsBinaryString(file);
 }
 
+function mapStoreId(src,mgr){
+  var s=String(src||"").trim();
+  if(["Юля","інстаграм реклама","Назар","ПАРК"].indexOf(s)>=0)return 0;
+  if(s==="nst")return 1;
+  if(s==="ОЛХ")return 2;
+  if(["PROM","Prom"].indexOf(s)>=0)return 3;
+  var m=String(mgr||"").trim();
+  if(m==="Юля")return 0;
+  if(m==="Настя")return 1;
+  return 0;
+}
+function getSgId(st){
+  var s=String(st||"").toLowerCase();
+  if(s.indexOf("отримано")>=0)return 0;
+  if(s.indexOf("відмова")>=0||s.indexOf("відхилений")>=0)return 1;
+  if(s.indexOf("видалено")>=0)return -1;
+  if(s.indexOf("пошті")>=0)return 2;
+  if(s.indexOf("слідує")>=0||s.indexOf("місті")>=0)return 3;
+  if(s.indexOf("чекає")>=0)return 3;
+  return 4;
+}
 function processRawOrders(rawRows){
-  function mapStoreId(src){
-    var s=String(src||"").trim();
-    if(["Юля","інстаграм реклама","Назар","ПАРК"].indexOf(s)>=0)return 0;
-    if(s==="nst")return 1;
-    if(s==="ОЛХ")return 2;
-    if(["PROM","Prom"].indexOf(s)>=0)return 3;
-    return 4;
-  }
-  function getSgId(st){
-    var s=String(st||"").toLowerCase();
-    if(s.indexOf("отримано")>=0)return 0;
-    if(s.indexOf("відмова")>=0||s.indexOf("відхилений")>=0||s.indexOf("видалено")>=0)return 1;
-    if(s.indexOf("пошті")>=0)return 2;
-    if(s.indexOf("слідує")>=0||s.indexOf("місті")>=0)return 3;
-    return 4;
-  }
   var newRaw=[];
   rawRows.forEach(function(r){
     var dateRaw=r["Дата"]; if(!dateRaw)return;
     var d=String(dateRaw).slice(0,10);
+    var sgId=getSgId(String(r["Статус ТТН"]||""));
+    if(sgId===-1)return; // видалено - skip entirely
     var ph=String(r["Телефон"]||"").replace(/[^0-9]/g,"");
     var ig=String(r["Клієнт"]||"").trim();
     if(ig==="nan"||ig==="NaN"||ig==="undefined")ig="";
     if(ig.indexOf("http")===0)ig=ig.split("/").pop();
     var cl=String(r["Прізвище"]||"").slice(0,16);
     var md=String(r["Модель"]||"").slice(0,30);
-    newRaw.push({d:d,st:mapStoreId(r["Джерело трафіку"]),sg:getSgId(String(r["Статус ТТН"]||"")),ma:Math.round(parseFloat(r["Маржа"])||0),dp:Math.round(parseFloat(r["Дроп ціна"])||0),cl:cl,ph:ph,ig:ig,md:md});
+    var margin=Math.round(parseFloat(r["Маржа"])||0)+Math.round(parseFloat(r["Часткова передплата"])||0);
+    var isShtorm=String(r["Постачальник"]||"").toUpperCase().indexOf("SHTORM")>=0?1:0;
+    newRaw.push({d:d,st:mapStoreId(r["Джерело трафіку"],r["Менеджер який прийняв замовлення"]),sg:sgId,ma:margin,dp:Math.round(parseFloat(r["Дроп ціна"])||0),cl:cl,ph:ph,ig:ig,md:md,sh:isShtorm});
   });
   RAW=newRaw;
   var dates=RAW.map(function(r){return r.d;}).sort();
   dateFrom=dates[0];dateTo=dates[dates.length-1];
   document.getElementById("df").value=dateFrom;
   document.getElementById("dt").value=dateTo;
-  document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень";
+  document.getElementById("hinfo").textContent="Збереження в базу...";
   go();
-  alert("Дані оновлено: "+RAW.length+" замовлень");
+  saveOrdersToCloud();
+}
+function saveOrdersToCloud(){
+  supaSet("orders",RAW).then(function(){
+    document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень · ☁️ збережено в базі";
+    alert("Дані оновлено і збережено в хмарі: "+RAW.length+" замовлень. Це буде доступно на всіх ваших пристроях.");
+  }).catch(function(e){
+    document.getElementById("hinfo").textContent=dateFrom+" — "+dateTo+" · "+RAW.length+" замовлень · ⚠️ помилка збереження";
+    alert("Дані оновлено локально, але не вдалося зберегти в хмару. Перевір інтернет і спробуй знову.");
+  });
 }
 
 // ============ NAV & UTILS ============
